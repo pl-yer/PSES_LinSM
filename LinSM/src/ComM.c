@@ -1,3 +1,13 @@
+/**===================================================================================================================*\
+  @file ComM.c
+
+  @brief ComM module implementation
+  
+  Model of Communication module.
+
+  @see AUTOSAR_SWS_LINStateManager.pdf
+\*====================================================================================================================*/
+
 #include "ComM.h"
 
 static NetworkHandleType Channel_mock;

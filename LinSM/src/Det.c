@@ -1,3 +1,13 @@
+/**===================================================================================================================*\
+  @file Det.c
+
+  @brief Default Error Tracer module
+  
+  Model of DET module needed by LinSM master node.
+
+  @see AUTOSAR_SWS_DefaultErrorTracer.pdf
+\*====================================================================================================================*/
+
 #include "Det.h"
 
 /**

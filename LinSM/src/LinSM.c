@@ -1,3 +1,12 @@
+/**===================================================================================================================*\
+  @file LinSM.c
+
+  @brief Lin State Manager model
+  
+  Implementation of LinSM master node with basic interface.
+
+  @see AUTOSAR_SWS_LINStateManager.pdf
+\*====================================================================================================================*/
 
 /** @req SWS_LinSM_00001 */
 #include "LinSM.h"    
@@ -136,7 +145,7 @@ Std_ReturnType LinSM_RequestComMode(NetworkHandleType network, ComM_ModeType mod
  * @brief Periodic function that runs the timers of different request timeouts
  * 
  * (available via SchM_LinSM.h)
- * [SWS_LinSM_00156]
+ * @req SWS_LinSM_00156
 */
 void LinSM_MainFunction(void){
 	/** @req SWS_LinSM_00157 Timers Handling */

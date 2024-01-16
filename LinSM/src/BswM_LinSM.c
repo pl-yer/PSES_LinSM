@@ -1,3 +1,13 @@
+/**===================================================================================================================*\
+  @file BswM_LinSM.c
+
+  @brief Basic Software Manager
+  
+  Implementation (model) of BswM module.
+
+  @see AUTOSAR_SWS_LINStateManager.pdf
+\*====================================================================================================================*/
+
 #include "BswM_LinSM.h"
 
 static NetworkHandleType Network_mock;
