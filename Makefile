@@ -13,7 +13,7 @@ endif
 SRC_FILES := ${TARGET}.c
 
 # Default target
-all: $(BUILD_DIR) compile run run_cover
+all: $(BUILD_DIR) compile run
 
 # Rule to make the build directory
 $(BUILD_DIR):
