@@ -1,4 +1,8 @@
 CC = gcc
+GCOV = gcov
+GCOVR = gcovr
+MV := move
+RM := del /Q
 CFLAGS =
 SRC_DIR = src
 BUILD_DIR = build
@@ -33,12 +37,12 @@ run:
 run_cover:
 	@echo 'Running coverage report ...'
 	$(CC) $(CFLAGS) -fprofile-arcs -ftest-coverage -g $(SRC_DIR)/$(TARGET).c -o $(BUILD_DIR)/$(TARGET).exe
-	move $(TARGET).gcno $(BUILD_DIR)/$(TARGET).gcno
+	$(MV) $(TARGET).gcno $(BUILD_DIR)/$(TARGET).gcno
 	./$(BUILD_DIR)/$(TARGET).exe
-	move $(TARGET).gcda $(BUILD_DIR)/$(TARGET).gcda
-	gcov -o $(BUILD_DIR) $(SRC_DIR)/$(TARGET).c
-	move *.gcov $(BUILD_DIR)/
-	gcovr --html-details -o $(BUILD_DIR)/coverage_report.html
+	$(MV) $(TARGET).gcda $(BUILD_DIR)/$(TARGET).gcda
+	$(GCOV) -o $(BUILD_DIR) $(SRC_DIR)/$(TARGET).c
+	$(MV) *.gcov $(BUILD_DIR)/
+	$(GCOVR) --html-details -o $(BUILD_DIR)/coverage_report.html
 
 # Clean rule
 clean:
