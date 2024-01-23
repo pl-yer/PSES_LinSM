@@ -4,6 +4,10 @@
 #include "Std_Types.h"
 #include "ComStackTypes.h"
 
+// config values
+#define LINIF_CONTROLLER_CNT    1
+#define LINIF_SCH_CNT           1
+
 typedef uint8 LinIf_SchHandleType;
 
 /** @req SWS_LinSM_00229 */

@@ -26,8 +26,7 @@
 
 /*==================[macros]==================================================*/
 /* Development error macros. */
-/* TODO For some reason it does not work */
-#if ( LINSM_DEV_ERROR_DETECT != STD_ON )
+#if ( LINSM_DEV_ERROR_DETECT == STD_ON )
 #define VALIDATE(_exp,_api,_err ) \
         if( !(_exp) ) { \
           Det_ReportError(MODULE_ID_LINSM,0,_api,_err); \
@@ -92,7 +91,7 @@ void LinSM_Init(const LinSM_ConfigType* ConfigPtr){
 
 /**
  * @brief The upper layer requests a schedule table to be changed on one LIN network
- * [SWS_LinSM_00113] 
+ * @req SWS_LinSM_00113
  * 
  * \param Network Identification of the LIN channel
  * \param Schedule Pointer to the new Schedule table
@@ -100,7 +99,29 @@ void LinSM_Init(const LinSM_ConfigType* ConfigPtr){
 */
 Std_ReturnType LinSM_ScheduleRequest(NetworkHandleType network, LinIf_SchHandleType schedule){
 
-    return E_OK;
+    Std_ReturnType rv;
+
+    /** @req SWS_LinSM_00114 */
+    VALIDATE_W_RV( (network < LINIF_CONTROLLER_CNT), LINSM_SCHEDULE_REQUEST_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK, E_NOT_OK);
+    /** @req SWS_LinSM_00115 */
+    VALIDATE_W_RV( (schedule < LINIF_SCH_CNT), LINSM_SCHEDULE_REQUEST_SERVICE_ID, LINSM_E_PARAMETER, E_NOT_OK);
+    /** @req SWS_LinSM_00116 */
+    VALIDATE_W_RV( (LinSMStatus != LINSM_UNINIT), LINSM_SCHEDULE_REQUEST_SERVICE_ID, LINSM_E_UNINIT, E_NOT_OK);
+    /** @req SWS_LinSM_10211 */
+	if (LinSMChannelStatus[network] != LINSM_FULL_COM){
+		return E_NOT_OK;
+	} else {
+        /** @req SWS_LinSM_00079 */
+        /** @req SWS_LinSM_00168 */
+        ScheduleRequestTimer[network] = LINSM_SCHEDULE_REQUEST_TIMEOUT;
+        rv = LinIf_ScheduleRequest(network, schedule);
+        if (rv != E_OK) {
+            /** @req SWS_LinSM_00213 */
+            BswM_LinSM_CurrentSchedule(network, 0);
+            ScheduleRequestTimer[network] = 0;
+        }
+        return rv;
+    }
 }
 
 /**
