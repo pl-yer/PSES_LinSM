@@ -117,7 +117,7 @@ Std_ReturnType LinSM_ScheduleRequest(NetworkHandleType network, LinIf_SchHandleT
         rv = LinIf_ScheduleRequest(network, schedule);
         if (rv != E_OK) {
             /** @req SWS_LinSM_00213 */
-            BswM_LinSM_CurrentSchedule(network, 0);
+            BswM_LinSM_CurrentSchedule(network, LinSMSchTablCurr[network]);
             ScheduleRequestTimer[network] = 0;
         }
         return rv;
@@ -131,20 +131,51 @@ Std_ReturnType LinSM_ScheduleRequest(NetworkHandleType network, LinIf_SchHandleT
  * \param VersionInfo Pointer to where to store the version information of this module
 */
 void LinSM_GetVersionInfo(Std_VersionInfoType *versioninfo){
-
+    /* @req SWS_LinSM_00119 */	
+    VALIDATE( (versioninfo != NULL), LINSM_SCHEDULE_REQUEST_SERVICE_ID, LINSM_E_PARAMETER_POINTER );
+    versioninfo->vendorID = LIN_VENDOR_ID;
+    versioninfo->moduleID = LIN_MODULE_ID;
+    versioninfo->sw_major_version = LIN_SW_MAJOR_VERSION;
+    versioninfo->sw_minor_version = LIN_SW_MINOR_VERSION;
+    versioninfo->sw_patch_version = LIN_SW_PATCH_VERSION;
 }
 
 /**
  * @brief Function to query the current communication mode
- * @req SWS_LinSM_00122]
+ * @req SWS_LinSM_00122
  * 
  * \param Network Identification of the LIN channel
  * \param Mode Returns the active mode, see ComM_ModeType for descriptions of the modes
  * \return Std_ReturnType 
 */
 Std_ReturnType LinSM_GetCurrentComMode(NetworkHandleType network, ComM_ModeType* mode){
-    
-    return E_OK;
+    /* @req SWS_LinSM_00123 */
+	VALIDATE_W_RV((network < LINIF_CONTROLLER_CNT), LINSM_GET_CURRENT_COM_MODE_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK, E_NOT_OK);
+	/* @req SWS_LinSM_00124 */
+	VALIDATE_W_RV((mode != NULL), LINSM_GET_CURRENT_COM_MODE_SERVICE_ID, LINSM_E_PARAMETER_POINTER, E_NOT_OK);
+
+	switch (LinSMStatus){
+		/* @req SWS_LinSM_00182 */
+        case LINSM_UNINIT:
+            *mode = COMM_NO_COMMUNICATION;
+            /* @req SWS_LinSM_00125 */
+            Det_ReportError(MODULE_ID_LINSM, 0, LINSM_GET_CURRENT_COM_MODE_SERVICE_ID, LINSM_E_UNINIT);
+            return E_NOT_OK;
+            break;
+        /* @req SWS_LinSM_00181 */
+        case LINSM_FULL_COMMUNICATION:
+            *mode = COMM_FULL_COMMUNICATION;
+            break;
+        /* @req SWS_LinSM_00180 */
+        case LINSM_NO_COMMUNICATION:
+            *mode = COMM_NO_COMMUNICATION;
+            break;
+        default:
+        // undefined state
+            *mode = COMM_NO_COMMUNICATION;
+            break;
+	}
+	return E_OK;
 }
 
 /**
@@ -158,8 +189,38 @@ Std_ReturnType LinSM_GetCurrentComMode(NetworkHandleType network, ComM_ModeType*
  * \return Std_ReturnType 
 */
 Std_ReturnType LinSM_RequestComMode(NetworkHandleType network, ComM_ModeType mode){
+    Std_ReturnType res = E_NOT_OK;
+    /* @req SWS_LinSM_00223 */
+    ComM_ModeType mode_mem;
     
-    return E_OK;
+    /* @req SWS_LinSM_00127 */
+	VALIDATE_W_RV((network < LINIF_CONTROLLER_CNT), LINSM_REQUEST_COM_MODE_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK, E_NOT_OK);
+	/* @req SWS_LinSM_00191 */
+	VALIDATE_W_RV((mode <= COMM_FULL_COMMUNICATION), LINSM_REQUEST_COM_MODE_SERVICE_ID, LINSM_E_PARAMETER, E_NOT_OK);
+	/* @req SWS_LinSM_00128 */
+	VALIDATE_W_RV((LinSMStatus != LINSM_UNINIT), LINSM_REQUEST_COM_MODE_SERVICE_ID, LINSM_E_UNINIT, E_NOT_OK);
+
+    switch (mode){
+        case COMM_SILENT_COMMUNICATION:
+            /* @req SWS_LinSM_00183 */
+            return E_NOT_OK;
+        case COMM_NO_COMMUNICATION:
+            if (LinIf_GotoSleep(network) == E_OK){
+                LinSMChannelStatus[network] = LINSM_GOTO_SLEEP;
+                GoToSleepTimer[network] = LINSM_GOTO_SLEEP_TIMEOUT;
+                res = E_OK;
+                mode_mem = mode;
+            } break;
+        case COMM_FULL_COMMUNICATION:
+            WakeUpTimer[network] = LINSM_WAKEUP_TIMEOUT; //should be done here since some implementations will confirm immediatly
+            if (LinIf_WakeUp(network) == E_OK){
+                res = E_OK;
+                mode_mem = mode;
+            } else {
+                WakeUpTimer[network] = 0;
+            } break;
+	}
+    return res;
 }
 
 /**
@@ -181,7 +242,16 @@ void LinSM_MainFunction(void){
  * \param Schedule Pointer to the new Schedule table
 */
 void LinSM_ScheduleRequestConfirmation(NetworkHandleType network, LinIf_SchHandleType schedule){
+    /* @req SWS_LinSM_00242 */
+	/* @req SWS_LinSM_00130 */
+	VALIDATE((network < LINIF_CONTROLLER_CNT), LINSM_SCHEDULE_REQUEST_CONF_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK);
+	/* @req SWS_LinSM_00131 */
+	VALIDATE((LinSMStatus != LINSM_UNINIT), LINSM_SCHEDULE_REQUEST_CONF_SERVICE_ID, LINSM_E_UNINIT);
 
+	if (ScheduleRequestTimer[network] != 0){
+		BswM_LinSM_CurrentSchedule(network, schedule);
+        ScheduleRequestTimer[0] = 0;
+	}
 }
 
 /**
@@ -193,7 +263,11 @@ void LinSM_ScheduleRequestConfirmation(NetworkHandleType network, LinIf_SchHandl
  * \param Channel Identification of the LIN channel
 */
 void LinSM_GotoSleepIndication(NetworkHandleType channel){
-
+    /* @req SWS_LinSM_00243 */
+    /* @req SWS_LinSM_00239 */
+    VALIDATE((channel < LINIF_CONTROLLER_CNT), LINSM_SCHEDULE_REQUEST_CONF_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK);
+    /* @req SWS_LinSM_00240 */
+    VALIDATE((LinSMStatus != LINSM_UNINIT), LINSM_SCHEDULE_REQUEST_CONF_SERVICE_ID, LINSM_E_UNINIT);
 }
 
 /**
@@ -204,8 +278,22 @@ void LinSM_GotoSleepIndication(NetworkHandleType channel){
  * \param Network Identification of the LIN channel
  * \param Success True if goto sleep was successfully sent, false otherwise
 */
-void LinSM_GotoSleepConfirmation(NetworkHandleType newtork, boolean success){
+void LinSM_GotoSleepConfirmation(NetworkHandleType network, boolean success){
+    /* @req SWS_LinSM_00137 */
+	VALIDATE((LinSMStatus != LINSM_UNINIT), LINSM_GOTO_SLEEP_CONF_SERVICE_ID, LINSM_E_UNINIT);
+	/* @req SWS_LinSM_00136 */
+	VALIDATE((network < LINIF_CONTROLLER_CNT), LINSM_GOTO_SLEEP_CONF_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK);
 
+	if (TRUE == success){
+		if (GoToSleepTimer[network] != 0){
+			GoToSleepTimer[network] = 0;
+			/* @req SWS_LinSM_00035 */
+			LinSMChannelStatus[network] = LINSM_NO_COMMUNICATION;
+			/* @req SWS_LinSM_00027 */
+			/* @req SWS_LinSM_00193 */
+			ComM_BusSM_ModeIndication(network, COMM_NO_COMMUNICATION);
+		}
+	}
 }
 
 /**

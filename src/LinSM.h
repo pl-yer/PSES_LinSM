@@ -47,7 +47,7 @@ typedef enum {
 /** @req SWS_LinSM_00221 */
 /* Container modelling post-build configuration parameters */
 typedef struct {
-    const uint32 ConfigParams;
+    uint32 ConfigParams;
 } LinSM_ConfigType;
 
 /* 8.3 LinSM API: This is a list of API calls provided for upper layer modules */
