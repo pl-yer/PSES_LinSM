@@ -1,8 +1,11 @@
 CC = gcc
 GCOV = gcov
 GCOVR = gcovr
+
+# Change move and rm commands according to op system
 MV := move
 RM := del /Q
+
 CFLAGS =
 SRC_DIR = src
 BUILD_DIR = build

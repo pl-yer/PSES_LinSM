@@ -17,4 +17,6 @@
 #define LINSM_GOTO_SLEEP_TIMEOUT        2
 #define LINSM_WAKEUP_TIMEOUT            1
 
+#define LINSM_MAIN_PROCESSING_PERIOD 1 /* aka LinSMConfirmationTimeout*/
+
 #endif

@@ -329,24 +329,88 @@ void Test_LinSM_GotoSleepConfirmation(void) {
     network = LINIF_CONTROLLER_CNT - 1;
     LinSMStatus = LINSM_INIT;
     success = TRUE;
-    GoToSleepTimer[network] == 1;
+    GoToSleepTimer[network] = 1;
     LinSM_GotoSleepConfirmation(network, success);
     TEST_CHECK(Det_ReportError_fake.call_count == 0);
     TEST_CHECK(ComM_BusSM_ModeIndication_fake.call_count == 1);
-    // TEST_CHECK(LinSMChannelStatus[network] == LINSM_NO_COMMUNICATION);
-    // TEST_CHECK(Network_mock == network);
-    // TEST_CHECK(ComMode_mock == COMM_NO_COMMUNICATION);
+    TEST_CHECK(LinSMChannelStatus[network] == LINSM_NO_COMMUNICATION);
+    TEST_CHECK(Network_mock == network);
+    TEST_CHECK(ComMode_mock == COMM_NO_COMMUNICATION);
+    TEST_CHECK(GoToSleepTimer[network] == 0);
+}
+
+/**
+ * @brief LinSM_WakeUpConfirmation tests
+*/
+void Test_LinSM_WakeUpConfirmation(void) {
+    ComM_BusSM_ModeIndication_fake.custom_fake = Spoof_ComM_BusSM_ModeIndication;
+
+    NetworkHandleType network = LINIF_CONTROLLER_CNT;
+    boolean success = TRUE;
+    LinSMStatus = LINSM_UNINIT;
+    LinSM_WakeUpConfirmation(network, success);
+    TEST_CHECK(Det_ReportError_fake.call_count == 1);
+
+    network = LINIF_CONTROLLER_CNT - 1;
+    LinSM_WakeUpConfirmation(network, success);
+    TEST_CHECK(Det_ReportError_fake.call_count == 2);
+
+    LinSMStatus = LINSM_INIT;
+    LinSM_WakeUpConfirmation(network, success);
+    TEST_CHECK(Det_ReportError_fake.call_count == 2);
+    TEST_CHECK(LinSMStatus == LINSM_FULL_COM);
+    TEST_CHECK(LinSMChannelStatus[network] == LINSM_RUN_COMMUNICATION);
+    TEST_CHECK(Network_mock == network);
+    TEST_CHECK(ComMode_mock == COMM_FULL_COMMUNICATION);
+}
+
+/**
+ * @brief LinSM_MainFunction tests
+*/
+void Test_LinSM_MainFunction(void) {
+    BswM_LinSM_CurrentSchedule_fake.custom_fake = Spoof_BswM_LinSM_CurrentSchedule;
+    uint8 channel = 0;
+
+    LinSMStatus = LINSM_UNINIT;
+    ScheduleRequestTimer[channel] = 0;
+    GoToSleepTimer[channel] = 0;
+    WakeUpTimer[channel] = 0;
+    LinSM_MainFunction();
+    TEST_CHECK(Det_ReportError_fake.call_count == 1);
+
+    Det_ReportError_fake.call_count = 0;
+    LinSMStatus = LINSM_INIT;
+    LinSMSchTablCurr[channel] = 2;
+    ScheduleRequestTimer[channel] = 1;
+    GoToSleepTimer[channel] = 1;
+    WakeUpTimer[channel] = 1;
+    LinSM_MainFunction();
+    TEST_CHECK(BswM_LinSM_CurrentSchedule_fake.call_count == 3);
+    TEST_CHECK(Network_mock == channel);
+    TEST_CHECK(Schedule_mock == LINSM_NO_COM);
+    TEST_CHECK(Det_ReportError_fake.call_count == 3);
+
+    Det_ReportError_fake.call_count = 0;
+    BswM_LinSM_CurrentSchedule_fake.call_count = 0;
+    ScheduleRequestTimer[channel] = 2;
+    GoToSleepTimer[channel] = 2;
+    WakeUpTimer[channel] = 2;
+    LinSM_MainFunction();
+    TEST_CHECK(BswM_LinSM_CurrentSchedule_fake.call_count == 0);
+    TEST_CHECK(Det_ReportError_fake.call_count == 0);
 }
 
 TEST_LIST = { 
-    { "Test of LinSM_Init", Test_LinSM_Init },
-    { "Test of LinSM_ScheduleRequest", Test_LinSM_ScheduleRequest },
-    { "Test of LinSM_GetVersion", Test_LinSM_GetVersionInfo },
-    { "Test of LinSM_GetCurrentComMode", Test_LinSM_GetCurrentComMode },
-    { "Test of LinSM_RequestComMode", Test_LinSM_RequestComMode },
-    { "Test of LinSM_ScheduleRequestConfirmation", Test_LinSM_ScheduleRequestConfirmation },
-    { "Test of LinSM_GotoSleepIndication", Test_LinSM_GotoSleepIndication },
-    { "Test of LinSM_GotoSleepConfirmation", Test_LinSM_GotoSleepConfirmation },
+    { "LinSM_Init", Test_LinSM_Init },
+    { "LinSM_ScheduleRequest", Test_LinSM_ScheduleRequest },
+    { "LinSM_GetVersion", Test_LinSM_GetVersionInfo },
+    { "LinSM_GetCurrentComMode", Test_LinSM_GetCurrentComMode },
+    { "LinSM_RequestComMode", Test_LinSM_RequestComMode },
+    { "LinSM_ScheduleRequestConfirmation", Test_LinSM_ScheduleRequestConfirmation },
+    { "LinSM_GotoSleepIndication", Test_LinSM_GotoSleepIndication },
+    { "LinSM_GotoSleepConfirmation", Test_LinSM_GotoSleepConfirmation },
+    { "LinSM_WakeUpConfirmation", Test_LinSM_WakeUpConfirmation },
+    { "LinSM_MainFunction", Test_LinSM_MainFunction },
     { NULL, NULL }                                     
 };
     

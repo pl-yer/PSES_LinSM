@@ -71,20 +71,20 @@ void LinSM_Init(const LinSM_ConfigType* ConfigPtr){
     /** @req SWS_LinSM_00151 */
 
     VALIDATE( (ConfigPtr!=NULL), LINSM_INIT_SERVICE_ID, LINSM_E_PARAMETER_POINTER );
-	uint8 i;
+	uint8 channel;
 
-	for (i=0; i < LINIF_CONTROLLER_CNT; i++)
+	for (channel=0; channel < LINIF_CONTROLLER_CNT; channel++)
 	{
 		/** @req SWS_LinSM_00152 */
 		/** @req SWS_LinSM_00160 */
-		LinSMChannelStatus[i] = LINSM_NO_COMMUNICATION;
+		LinSMChannelStatus[channel] = LINSM_NO_COMMUNICATION;
 		/** @req SWS_LinSM_00043 */
 		/** @req SWS_LinSM_00216 */
-		LinSMSchTablCurr[i] = NULL_SCHEDULE; 
-		LinSMSchTablNew[i] = 0;
-		ScheduleRequestTimer[i] = 0;
-		GoToSleepTimer[i] = 0;
-		WakeUpTimer[i] = 0;
+		LinSMSchTablCurr[channel] = NULL_SCHEDULE; 
+		LinSMSchTablNew[channel] = 0;
+		ScheduleRequestTimer[channel] = 0;
+		GoToSleepTimer[channel] = 0;
+		WakeUpTimer[channel] = 0;
 	}
 	LinSMStatus = LINSM_INIT;
 }
@@ -171,7 +171,7 @@ Std_ReturnType LinSM_GetCurrentComMode(NetworkHandleType network, ComM_ModeType*
             *mode = COMM_NO_COMMUNICATION;
             break;
         default:
-        // undefined state
+            // undefined state
             *mode = COMM_NO_COMMUNICATION;
             break;
 	}
@@ -224,13 +224,68 @@ Std_ReturnType LinSM_RequestComMode(NetworkHandleType network, ComM_ModeType mod
 }
 
 /**
+ * @brief Extra function used by timers handler to countdown and report 
+ * expiration.
+ * @req SWS_LinSM_00162
+ * 
+ * \param timer Timer object
+*/
+static void DecrementTimer(uint16 *timer) {
+    /** @req SWS_LinSM_00159*/
+    *timer = *timer - LINSM_MAIN_PROCESSING_PERIOD;
+    /** @req SWS_LinSM_00101*/
+    if(*timer < LINSM_MAIN_PROCESSING_PERIOD){
+        /** @req SWS_LinSM_00102*/
+        Det_ReportError(MODULE_ID_LINSM,0,LINSM_MAIN_FUNCTION_SERVICE_ID,LINSM_E_CONFIRMATION_TIMEOUT);
+    } else {
+        /* do nothing */
+    }
+}
+
+/**
  * @brief Periodic function that runs the timers of different request timeouts
  * 
  * (available via SchM_LinSM.h)
  * @req SWS_LinSM_00156
 */
 void LinSM_MainFunction(void){
-	/** @req SWS_LinSM_00157 Timers Handling */
+    /** @req SWS_LinSM_00179 */
+    VALIDATE( (LinSMStatus != LINSM_UNINIT), LINSM_MAIN_FUNCTION_SERVICE_ID, LINSM_E_UNINIT);
+    uint8 channel;
+	ComM_ModeType ComMode;
+
+    /** @req SWS_LinSM_00157 */
+	for(channel = 0; channel < LINIF_CONTROLLER_CNT; channel++){
+		// Check timers
+	    if(ScheduleRequestTimer[channel] >= LINSM_MAIN_PROCESSING_PERIOD){
+
+	        DecrementTimer(&ScheduleRequestTimer[channel]);
+            if (ScheduleRequestTimer[channel] < LINSM_MAIN_PROCESSING_PERIOD) {
+                /** @req SWS_LinSM_00214 */
+                BswM_LinSM_CurrentSchedule(channel, LinSMSchTablCurr[channel]);
+            }
+	    }
+	    if(GoToSleepTimer[channel] >= LINSM_MAIN_PROCESSING_PERIOD){
+
+	        DecrementTimer(&GoToSleepTimer[channel]);
+            if (GoToSleepTimer[channel] < LINSM_MAIN_PROCESSING_PERIOD) {
+                ComMode = COMM_FULL_COMMUNICATION;
+                ComM_BusSM_ModeIndication(channel, ComMode);
+                /** @req SWS_LinSM_00170 */
+                BswM_LinSM_CurrentSchedule(channel, LINSM_FULL_COM);
+            }
+	    }
+        if(WakeUpTimer[channel] >= LINSM_MAIN_PROCESSING_PERIOD){
+
+            DecrementTimer(&WakeUpTimer[channel]);
+            if (WakeUpTimer[channel] < LINSM_MAIN_PROCESSING_PERIOD) {
+                ComMode = COMM_NO_COMMUNICATION;
+                ComM_BusSM_ModeIndication(channel, ComMode);
+                /** @req SWS_LinSM_00170 */
+                BswM_LinSM_CurrentSchedule(channel,LINSM_NO_COM);
+            }
+        }
+	}
 }
 
 /**
@@ -248,10 +303,12 @@ void LinSM_ScheduleRequestConfirmation(NetworkHandleType network, LinIf_SchHandl
 	/* @req SWS_LinSM_00131 */
 	VALIDATE((LinSMStatus != LINSM_UNINIT), LINSM_SCHEDULE_REQUEST_CONF_SERVICE_ID, LINSM_E_UNINIT);
 
-	if (ScheduleRequestTimer[network] != 0){
+	if (ScheduleRequestTimer[network] >= LINSM_MAIN_PROCESSING_PERIOD){
 		BswM_LinSM_CurrentSchedule(network, schedule);
         ScheduleRequestTimer[0] = 0;
-	}
+	} else {
+        /* do nothing */
+    }
 }
 
 /**
@@ -292,8 +349,12 @@ void LinSM_GotoSleepConfirmation(NetworkHandleType network, boolean success){
 			/* @req SWS_LinSM_00027 */
 			/* @req SWS_LinSM_00193 */
 			ComM_BusSM_ModeIndication(network, COMM_NO_COMMUNICATION);
-		}
-	}
+		} else {
+            /* do nothing */
+        }
+	} else {
+        /* do nothing */
+    }
 }
 
 /**
@@ -305,5 +366,21 @@ void LinSM_GotoSleepConfirmation(NetworkHandleType network, boolean success){
  * \param Success True if wakeup was successfully sent, false otherwise
 */
 void LinSM_WakeUpConfirmation(NetworkHandleType network, boolean success){
+    /* @req SWS_LinSM_00134 */
+	VALIDATE((LinSMStatus != LINSM_UNINIT), LINSM_WAKEUP_CONF_SERVICE_ID, LINSM_E_UNINIT);
+	/* @req SWS_LinSM_00133 */
+	VALIDATE((network < LINIF_CONTROLLER_CNT), LINSM_WAKEUP_CONF_SERVICE_ID, LINSM_E_NONEXISTENT_NETWORK);
 
+    if (TRUE == success){
+        /* @req SWS_LinSM_00049 */
+        LinSMStatus = LINSM_FULL_COM;
+
+        WakeUpTimer[network] = 0;
+        /* @req SWS_LinSM_00033 */
+        ComM_BusSM_ModeIndication(network, COMM_FULL_COMMUNICATION);
+        /* @req SWS_LinSM_00301 */
+        LinSMChannelStatus[network] = LINSM_RUN_COMMUNICATION;
+    } else {
+	    /* @req SWS_LinSM_00202 */
+    }
 }
